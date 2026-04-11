@@ -1,0 +1,134 @@
+version: 2
+
+models:
+
+  - name: dim_location
+    description: "Dimension table containing unique sensor locations with metadata such as city, country, and sensor type."
+    columns:
+      - name: location_id
+        description: "Primary key for the location."
+        tests:
+          - not_null
+          - unique
+      - name: sensor_station
+        description: "Name of the sensor station."
+        tests:
+          - not_null
+      - name: lat
+        description: "Latitude of the sensor location."
+      - name: lon
+        description: "Longitude of the sensor location."
+      - name: sensor_type
+        description: "Type of sensor (Reference grade, Air sensor, Other)."
+      - name: city
+        description: "City where the sensor is located."
+      - name: country
+        description: "Country of the sensor."
+
+  - name: dim_parameter
+    description: "Dimension table containing all measurement parameters and their units with descriptions."
+    columns:
+      - name: parameter_id
+        description: "Primary key for the parameter."
+        tests:
+          - not_null
+          - unique
+      - name: parameter_code
+        description: "Code of the measured parameter (pm25, co, no2, etc.)."
+        tests:
+          - not_null
+      - name: unit
+        description: "Unit of measurement for the parameter (µg/m3, ppb, °C, etc.)."
+        tests:
+          - not_null
+      - name: description
+        description: "Human-readable description of the parameter."
+
+  - name: fct_air_quality_measurements
+    description: "Fact table containing air quality measurements. Joins locations and parameters, with stable surrogate key measurement_id."
+    columns:
+      - name: measurement_id
+        description: "Unique identifier for each measurement (MD5 hash of location, parameter, datetime)."
+        tests:
+          - not_null
+          - unique
+      - name: location_id
+        description: "Foreign key to dim_location."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_location')
+              field: location_id
+      - name: parameter_id
+        description: "Foreign key to dim_parameter."
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_parameter')
+              field: parameter_id
+      - name: measurement_datetime
+        description: "Timestamp of the measurement."
+        tests:
+          - not_null
+      - name: measurement_date
+        description: "Date part of the measurement timestamp."
+      - name: parameter_value
+        description: "Measured value for the parameter."
+
+  - name: rpt_city_pollution_comparison
+    description: "Reporting model: daily air quality summary per city and pollutant."
+    columns:
+      - name: city
+        description: "City name."
+        tests:
+          - not_null
+      - name: parameter_code
+        description: "Pollutant parameter code."
+        tests:
+          - not_null
+      - name: avg_pollution
+        description: "Average pollution value per city and parameter."
+
+  - name: rpt_daily_air_quality
+    description: "Reporting model: pollution comparison between cities with aggregates and counts."
+    columns:
+      - name: measurement_date
+        description: "Date of measurement."
+        tests:
+          - not_null
+      - name: city
+        description: "City name."
+        tests:
+          - not_null
+      - name: sensor_type
+        description: "Type of sensor."
+      - name: parameter_code
+        description: "Measured parameter."
+      - name: avg_value
+        description: "Average value of the measurement for the day."
+      - name: min_value
+        description: "Minimum value of the measurement for the day."
+      - name: max_value
+        description: "Maximum value of the measurement for the day."
+      - name: measurements_count
+        description: "Number of measurements aggregated for the day."
+      - name: unit
+        description: "Unit of the measurement."
+
+  - name: rpt_weather_pollution
+    description: "Reporting model: Weather vs Pollution Analysis, correlating temperature, wind, and PM2.5."
+    columns:
+      - name: measurement_date
+        description: "Date of measurement."
+        tests:
+          - not_null
+      - name: city
+        description: "City name."
+        tests:
+          - not_null
+      - name: avg_temp
+        description: "Average temperature for the city and date."
+      - name: avg_wind_speed
+        description: "Average wind speed for the city and date."
+      - name: avg_pm25
+        description: "Average PM2.5 concentration for the city and date."
