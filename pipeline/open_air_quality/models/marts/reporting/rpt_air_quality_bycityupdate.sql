@@ -48,4 +48,4 @@ SELECT
         ELSE 'Hazardous'
     END AS overall_air_quality_score
 FROM city_summary
-ORDER BY avg_aqi DESC;
+ORDER BY avg_aqi DESC
