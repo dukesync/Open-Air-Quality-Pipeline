@@ -57,15 +57,17 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_location')
-              field: location_id
+              arguments:
+                to: ref('dim_location')
+                field: location_id
       - name: parameter_id
         description: "Foreign key to dim_parameter."
         tests:
           - not_null
           - relationships:
-              to: ref('dim_parameter')
-              field: parameter_id
+              arguments:
+                to: ref('dim_parameter')
+                field: parameter_id
       - name: measurement_datetime
         description: "Timestamp of the measurement."
         tests:
