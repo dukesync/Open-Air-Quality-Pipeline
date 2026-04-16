@@ -15,7 +15,7 @@ WITH daily_averages AS (
         l.country,
         p.parameter_code,
         AVG(f.parameter_value) AS avg_concentration,
-        -- Meteo averages (using MAX since they should be the same per day)
+        -- using MAX since they should be the same per day
         MAX(CASE WHEN p.parameter_code = 'temperature' THEN f.parameter_value END) AS avg_temperature,
         MAX(CASE WHEN p.parameter_code = 'relativehumidity' THEN f.parameter_value END) AS avg_rh
     FROM {{ ref('fct_air_quality_measurements') }} f
@@ -33,7 +33,7 @@ aqi_subindices AS (
     FROM daily_averages
 ),
 
--- Step 1: Get overall AQI and pivot the concentrations
+-- Get overall AQI and pivot the concentrations
 daily_base AS (
     SELECT 
         measurement_date,
@@ -53,7 +53,7 @@ daily_base AS (
     GROUP BY measurement_date, location_id, city, country
 ),
 
--- Step 2: Find the dominant pollutant (the one with the highest aqi_subindex)
+-- Find the dominant pollutant (the one with the highest aqi_subindex)
 dominant AS (
     SELECT 
         measurement_date,

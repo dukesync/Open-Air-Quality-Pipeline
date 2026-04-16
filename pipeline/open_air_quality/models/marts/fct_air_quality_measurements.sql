@@ -66,7 +66,7 @@ left join dim_param p
 
 {% if is_incremental() %}
 
---  rocess new OR recently updated data
+--  Process new OR recently updated data
 where m.measurement_datetime >= (
 select max(measurement_datetime)
 from {{ this }}
