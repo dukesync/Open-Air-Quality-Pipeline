@@ -125,7 +125,7 @@ else:
     st.warning("No data found.")
 
 # City Comparison
-st.subheader("🏙️ Air Quality by City (3-Month Summary)")
+st.subheader("Air Quality by City (3-Month Summary)")
 
 st.dataframe(
     city_df.style.format({
