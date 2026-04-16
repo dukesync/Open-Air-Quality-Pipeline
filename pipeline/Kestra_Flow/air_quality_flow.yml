@@ -1,0 +1,205 @@
+id: mule_487506
+namespace: open_air_quality
+
+inputs:
+  - id: dbt_command
+    type: SELECT
+    allowCustomValue: true
+    defaults: dbt build
+    values:
+      - dbt build
+      - dbt debug
+      - dbt run
+      - dbt test
+      - dbt compile
+
+tasks:
+- id: setup_database
+  type: io.kestra.plugin.jdbc.postgresql.Queries
+  
+  url: "{{ envs.neon_jdbc_url }}"
+  username: "{{ envs.neon_db_user }}"
+  password: "{{ envs.neon_db_password }}"
+  
+  sql: |
+    -- 1. Ensure the raw schema exists
+    CREATE SCHEMA IF NOT EXISTS raw_openaq;
+
+    -- 2. Create the raw table if it doesn't exist
+    CREATE TABLE IF NOT EXISTS raw_openaq.raw_openaq_measurements (
+      location_id INT,
+      sensors_id INT,
+      location TEXT,
+      datetime TIMESTAMPTZ,
+      lat FLOAT8,
+      lon FLOAT8,
+      parameter TEXT,
+      units TEXT,
+      value FLOAT8,
+      ingested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (location_id, datetime, parameter)
+      );
+      
+- id: load_openaq_data
+  type: io.kestra.plugin.scripts.python.Script
+  containerImage: python:3.11-slim
+  env:
+    NEON_DATABASE_URL: "{{ envs.neon_database_url }}"
+    NEON_DB_USER: "{{ envs.neon_db_user }}"
+    NEON_DB_PASSWORD: "{{ envs.neon_db_password }}"
+  
+  script: |
+      import subprocess
+      subprocess.run(["pip", "install", "--no-cache-dir", "psycopg2-binary", "requests"], check=True)
+
+      import psycopg2
+      import os
+      import requests
+      import gzip
+      import io
+      import csv
+      from datetime import datetime, timedelta
+
+      # Locations
+      locations = [
+          {"city": "Nairobi", "location_id": "6237507"},
+          {"city": "New_Delhi", "location_id": "6358"},
+          {"city": "Addis_Ababa", "location_id": "9714"},
+          {"city": "Kigali", "location_id": "6130295"},
+          {"city": "New_York_City", "location_id": "6166696"}
+      ]
+
+      # Always fetch LAST 2 MONTHS dynamically
+      end_date = datetime.utcnow()
+      start_date = end_date - timedelta(days=60)
+
+      base_url = "https://openaq-data-archive.s3.amazonaws.com/records/csv.gz"
+
+      
+      conn = psycopg2.connect(
+        os.getenv("NEON_DATABASE_URL"),
+        user=os.getenv("NEON_DB_USER"),
+        password=os.getenv("NEON_DB_PASSWORD"),
+        sslmode="require"
+      )
+    
+      cur = conn.cursor()
+
+      # Get latest timestamp per location
+      cur.execute("""
+          SELECT location_id, MAX(datetime)
+          FROM raw_openaq.raw_openaq_measurements
+          GROUP BY location_id
+      """)
+      latest_dates = {str(row[0]): row[1] for row in cur.fetchall()}
+
+      print("Latest timestamps in DB:", latest_dates)
+
+      files_loaded = 0
+      rows_inserted = 0
+
+      current_date = start_date
+
+      while current_date <= end_date:
+          year = current_date.strftime("%Y")
+          month = current_date.strftime("%m")
+          date_str = current_date.strftime("%Y%m%d")
+
+          for loc in locations:
+              l_id = loc["location_id"]
+
+              filename = f"location-{l_id}-{date_str}.csv.gz"
+              file_url = f"{base_url}/locationid={l_id}/year={year}/month={month}/{filename}"
+
+              print(f"Checking {filename}...")
+              r = requests.get(file_url)
+
+              if r.status_code == 200:
+                  print(f"Processing {filename}")
+
+                  last_loaded = latest_dates.get(l_id)
+
+                  with gzip.GzipFile(fileobj=io.BytesIO(r.content)) as gz:
+                      csv_data = gz.read().decode('utf-8')
+                      reader = csv.DictReader(io.StringIO(csv_data))
+
+                      filtered_rows = []
+
+                      # Filter out already ingested rows
+                      for row in reader:
+                          row_datetime = datetime.fromisoformat(row["datetime"])
+
+                          if last_loaded is None or row_datetime > last_loaded:
+                              filtered_rows.append(row)
+
+                      if filtered_rows:
+                          output = io.StringIO()
+                          writer = csv.DictWriter(output, fieldnames=reader.fieldnames)
+                          writer.writeheader()
+                          writer.writerows(filtered_rows)
+                          output.seek(0)
+
+                          # Insert ONLY new rows
+                          try:
+                              cur.copy_expert(
+                                  "COPY raw_openaq.raw_openaq_measurements (location_id, sensors_id, location, datetime, lat, lon, parameter, units, value ) FROM STDIN WITH CSV HEADER ",
+                                  output
+                              )
+                              conn.commit()
+                              rows_inserted += len(filtered_rows)
+                          except Exception as e:
+                              conn.rollback()
+                              print("Insert error (likely duplicates blocked by UNIQUE):", e)
+
+                      files_loaded += 1
+
+          current_date += timedelta(days=1)
+
+      cur.close()
+      conn.close()
+
+      print(f"Files processed: {files_loaded}")
+      print(f"New rows inserted: {rows_inserted}")
+
+
+- id: sync_dbt_models
+  type: io.kestra.plugin.git.SyncNamespaceFiles
+  url: https://github.com/dukesync/Carriers_on_Time
+  branch: main
+  gitDirectory: pipeline/open_air_quality
+  username: "{{ envs.github_username }}"                 # your GitHub username
+  password: "{{ envs.github_token }}"   # references the secret you created
+  namespace: "{{ flow.namespace }}"
+  dryRun: false
+  disabled: false  # Uncomment after first successful run or change to true
+  
+ 
+
+- id: dbt-build
+  type: io.kestra.plugin.dbt.cli.DbtCLI
+  namespaceFiles:
+    enabled: true
+  containerImage: ghcr.io/kestra-io/dbt-postgres:latest
+  taskRunner:
+    type: io.kestra.plugin.scripts.runner.docker.Docker
+  commands:
+    - dbt deps
+    - "{{ inputs.dbt_command }}"
+  storeManifest:
+    key: manifest.json
+    namespace: "{{ flow.namespace }}"
+  profiles: |
+    open_air_quality:
+      outputs:
+        dev:
+          port: 5432
+          host: "{{ envs.dbt_profile_host }}"
+          dbname: "{{ envs.dbt_profile_db }}"
+          user: "{{ envs.dbt_profile_user }}"
+          pass: "{{ envs.dbt_profile_password }}"
+          schema: "{{ envs.dbt_profile_schema }}"
+          threads: 2
+          type: postgres
+      target: dev  
+  #disabled: false
+  
