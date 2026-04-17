@@ -6,6 +6,10 @@ This project demonstrates a data engineering workflow using **Terraform**, **Kes
 
 Built as part of a data engineering assignment to showcase end-to-end batch pipeline orchestration and analytics.
 
+<img width="1017" height="465" alt="Temporal Trends" src="https://github.com/user-attachments/assets/f824074c-7608-4d13-a34b-9855723ffb99" />
+
+<img width="955" height="326" alt="Air quality Summary" src="https://github.com/user-attachments/assets/80b37f9f-5e47-4ffe-8106-a9decb9ed20e" />
+
 Follow these steps to reproduce the full project on your machine.
 
 ### Prerequisites
