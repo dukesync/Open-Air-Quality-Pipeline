@@ -56,7 +56,7 @@ source .venv/bin/activate
 ```
 ### Step 5: Set Up Kestra (Orchestration)
 - 1. Navigate into the pipeline directory
-- 2. Create a dotenv file (.env), it should look similar to this structure
+- 2. Create a dotenv file (.env), it should look similar to this structure. For database connection, details can be found in the connection string of your neon db project inside your neon dashboard.
 ```dotenv
 # Kestra internal DB
 KESTRA_DB_PASSWORD=k3str4
