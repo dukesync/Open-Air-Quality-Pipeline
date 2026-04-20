@@ -47,6 +47,7 @@ terraform init
 terraform plan
 terraform apply -auto-approve
 ```
+- Immediately update the database name that is declared in Terraform setup.
 ### Step 4: Set Up Python Environment with uv
 - If uv is not present you could install it via the pip command, otherwise run the next command
 ```bash
