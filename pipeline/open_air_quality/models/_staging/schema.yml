@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: raw_open_air_quality
     description: "This source contains the raw air quality data from the Open Air Quality project."
-    database: neondb # update using database name used in terraform. Also database name in gcp is {gcp project name} 
+    database: air_quality_test # update using database name used in terraform. Also database name in gcp is {gcp project name} 
     schema: raw_openaq # schema name in gcp is {gcp dataset name}
     tables:
         - name: raw_openaq_measurements
