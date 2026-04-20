@@ -57,7 +57,7 @@ source .venv/bin/activate
 ```
 ### Step 5: Set Up Kestra (Orchestration)
 - 1. Navigate into the pipeline directory
-- 2. Create a dotenv file (.env), it should look similar to this structure. For database connection, details can be found in the connection string of your neon db project inside your neon dashboard.
+- 2. Create a dotenv file (.env), it should look similar to this structure. Variable names should remain the same, you provide the values. For database connection, details can be found in the connection string of your neon db project inside your neon dashboard.
 ```dotenv
 # Kestra internal DB
 KESTRA_DB_PASSWORD=k3str4
@@ -82,6 +82,9 @@ ENV_DBT_PROFILE_PASSWORD=your_neon_db_password
 ENV_DBT_PROFILE_HOST=your-neon-host.eu-central-1.aws.neon.tech
 ENV_DBT_PROFILE_DB=air_quality_test
 ENV_DBT_PROFILE_SCHEMA=analytics
+
+# streamlit database connection
+NEON_DATABASE_URL=postgresql://your-neon-host.eu-central-1.aws.neon.tech:5432/air_quality_test?sslmode=require&channel_binding=require (full string from neon connection string)
 ```
 - 3. Start Kestra using Docker Compose:
 ```bash
